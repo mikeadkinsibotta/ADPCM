@@ -68,6 +68,18 @@ unsigned char reverse(unsigned char b) {
    return b;
 }
 
+
+void write_little_endian(unsigned int word, int num_bytes, FILE *wav_file)
+{
+	unsigned buf;
+	while(num_bytes>0)
+	{   buf = word & 0xff;
+		fwrite(&buf, 1,1, wav_file);
+		num_bytes--;
+	word >>= 8;
+	}
+}
+
 void fourBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state);
 void fourBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state);
 void threeBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state);
@@ -175,20 +187,24 @@ int main(int argc, char **argv)
 void threeBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 	char * codes = (char*) malloc(sizeof(char)*3);
 	char threebit[8];
+	int j = 0;
 
 	while (fread(codes, sizeof (char), 3, fpin) == 3) {
-			threebit[0] = codes[0] >> 5;
-			threebit[1] = codes[0] >> 2;
-			threebit[2] = ((codes[0] & 3) << 2) | (codes[1] >> 7);
-			threebit[3] = codes[1] >> 4;
-			threebit[4] = codes[1] >> 1 & 3;
-			threebit[5] = (codes[1] & 1) | (codes[2] >> 6);
-			threebit[6] = codes[2] >> 3;
-			threebit[7] = codes[2] & 7;
+
+
+			threebit[0] = (codes[0] >> 5) & 0x7;
+			threebit[1] = (codes[0] >> 2) & 0x7;
+			threebit[2] = (((codes[0] & 3) << 1) | ((codes[1] >> 7) & 0x1));
+			threebit[3] = (codes[1] >> 4) & 0x7;
+			threebit[4] = (codes[1] >> 1) & 0x7;
+			threebit[5] = (((codes[1] & 1) << 2) | ((codes[2] >> 6) & 0x3)) & 0x7;
+			threebit[6] = (codes[2] >> 3) & 0x7;
+			threebit[7] = codes[2] & 0x7;
 
 			// Write sample for  3-bits code
 			for(int i = 0;i < 8; ++i) {
-				short sample = ADPCMDecoder(threebit[i], 3, state);
+				short sample = ADPCMDecoder3Bit(threebit[i], state);
+				//write_little_endian(sample, 2, fpout);
 				fwrite(&sample, sizeof(short), 1, fpout);
 			}
 		}
@@ -198,10 +214,8 @@ void threeBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 
 void threeBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 
-	short sample;
-	int shift = 0;
+	signed short sample;
 	char code = 0;
-	int codes = 0;
 	int i = 0;
 	char buffer[3] = {0};
 
@@ -209,7 +223,7 @@ void threeBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 	while (fread(&sample, sizeof(short), 1, fpin) == 1)
 	{
 
-		code = ADPCMEncoder(sample, 3, state);
+		code = ADPCMEncoder3Bit(sample, state);
 
 		switch(i) {
 
@@ -282,7 +296,7 @@ void fourBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 void fourBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 	unsigned char code;
 	short sample;
-
+	int j = 0;
 
 	while (fread(&code, sizeof (char), 1, fpin) == 1)
 	{
