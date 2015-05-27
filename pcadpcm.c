@@ -24,7 +24,12 @@
 /* Table of index changes */
 signed char IndexTable[16] = {
 	-1, -1, -1, -1, 2, 4, 6, 8,
-	-1, -1, -1, -1, 2, 4, 6, 8,
+	-1, -1, -1, -1, 2, 4, 6, 8
+};
+
+signed char IndexTable3bit[8] = {
+		-1, -1, 1, 2,
+		-1, -1, 1, 2
 };
 
 /* Quantizer step size lookup table */
@@ -117,11 +122,16 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 
 	/* Inverse quantize the ADPCM code into a predicted difference using the quantizer step size */
 	diff = 0;
-	if(bits == 4 && (code & 4))
+
+	if(((bits == 4) && (code & 4)) || ((bits == 3) && (code & 2)))
 		diff += step;
-	if(code & 2)
+
+
+	if(((bits == 4) && (code & 2)) || ((bits == 3) && (code & 1)))
 		diff += (step >> 1);
-	if(code & 1)
+
+
+	if((bits == 4) && (code & 1))
 		diff += (step >> 2);
 
 	if(bits ==4)
@@ -142,7 +152,10 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 		predsample = -32767;
 
 	/* Find new quantizer stepsize index by adding the old index to a table lookup using the ADPCM code */
-	index += IndexTable[code];
+	if(bits == 4)
+		index += IndexTable[code];
+	else
+		index += IndexTable3bit[code];
 
 	/* Check for overflow of the new quantizer step size index */
 	if( index < 0 )
@@ -185,11 +198,13 @@ int ADPCMDecoder(char code, int bits, struct ADPCMstate *state)
 
 
 	diff = 0;
-	if(bits == 4 && (code & 4))
+	if(((bits == 4) && (code & 4)) || ((bits == 3) && (code & 2)))
 		diff += step;
-	if(code & 2)
+
+	if(((bits == 4) && (code & 2)) || ((bits == 3) && (code & 1)))
 		diff += (step >> 1);
-	if(code & 1)
+
+	if((bits == 4) && (code & 1))
 		diff += (step >> 2);
 
 	if(bits ==4)
@@ -205,11 +220,14 @@ int ADPCMDecoder(char code, int bits, struct ADPCMstate *state)
 	/* Check for overflow of the new predicted sample */
 	if( predsample > 32767)
 		predsample = 32767;
-	else if( predsample < -32767)
-		predsample = -32767;
+	else if( predsample < -32768)
+		predsample = -32768;
 
 	/* Find new quantizer step size by adding the old index and a table lookup using the ADPCM code */
-	index += IndexTable[code];
+	if(bits == 4)
+		index += IndexTable[code];
+	else
+		index += IndexTable3bit[code];
 
 	/* Check for overflow of the new quantizer step size index */
 	if( index < 0)

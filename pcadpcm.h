@@ -12,7 +12,7 @@
 *	and the function prototypes.                                             *
 *****************************************************************************/
 struct ADPCMstate {
-	short prevsample;/* Predicted sample */
+	signed short prevsample;/* Predicted sample */
 	int previndex;/* Index into step size table */
 };
 
@@ -21,3 +21,5 @@ char ADPCMEncoder(short, int, struct ADPCMstate *);
 
 /* Function prototype for the ADPCM Decoder routine */
 int ADPCMDecoder(char, int, struct ADPCMstate *);
+
+

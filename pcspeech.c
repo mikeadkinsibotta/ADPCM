@@ -187,7 +187,6 @@ int main(int argc, char **argv)
 void threeBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 	char * codes = (char*) malloc(sizeof(char)*3);
 	char threebit[8];
-	int j = 0;
 
 	while (fread(codes, sizeof (char), 3, fpin) == 3) {
 
@@ -203,8 +202,7 @@ void threeBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 
 			// Write sample for  3-bits code
 			for(int i = 0;i < 8; ++i) {
-				short sample = ADPCMDecoder3Bit(threebit[i], state);
-				//write_little_endian(sample, 2, fpout);
+				short sample = ADPCMDecoder(threebit[i], 3, state);
 				fwrite(&sample, sizeof(short), 1, fpout);
 			}
 		}
@@ -223,7 +221,7 @@ void threeBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 	while (fread(&sample, sizeof(short), 1, fpin) == 1)
 	{
 
-		code = ADPCMEncoder3Bit(sample, state);
+		code = ADPCMEncoder(sample, 3, state);
 
 		switch(i) {
 
@@ -296,7 +294,6 @@ void fourBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 void fourBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 	unsigned char code;
 	short sample;
-	int j = 0;
 
 	while (fread(&code, sizeof (char), 1, fpin) == 1)
 	{
