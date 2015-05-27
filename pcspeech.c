@@ -203,30 +203,50 @@ void threeBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 	char code = 0;
 	int codes = 0;
 	int i = 0;
+	char buffer[3] = {0};
 
+	char hold = 0;
 	while (fread(&sample, sizeof(short), 1, fpin) == 1)
 	{
-		// Encode sample into 3-bit code
+
 		code = ADPCMEncoder(sample, 3, state);
-		// Shift ADPCM 3-bit code
-		//long l = strtol(code, 0, 2);
-		unsigned char b = code & 0xffl;
-		fwrite(&b, 1, 1, fpout);
+
+		switch(i) {
+
+		case 0:
+			buffer[0] = code << 5;
+			break;
+		case 1:
+			buffer[0] |= code << 2;
+			break;
+		case 2:
+			hold = code;
+			buffer[0] |= (code >> 1);
+			break;
+		case 3:
+			buffer[1] = hold << 7;
+			buffer[1] |= code << 4;
+			break;
+		case 4:
+			buffer[1] |= code << 1;
+			break;
+		case 5:
+			hold = code;
+			buffer[1] |= (code >> 2);
+			break;
+		case 6:
+			buffer[2] = hold << 6;
+			buffer[2] |= code << 3;
+			break;
+		case 7:
+			buffer[2] |= code;
+		}
+
 		i++;
-		if(i ==3 )
-			return;
-
-
-		/*shift += 3;
-
-		if(shift == 24) {
-			//codes >>= 2 ;
-			char codest = reverse((char)codes);
-			fwrite(&codest, sizeof (char), 1, fpout);
-			return;
-			shift = 0;
-			codes = 0;
-		}*/
+		if(i == 8) {
+			fwrite(&buffer, sizeof (char) * 3, 1, fpout);
+			i = 0;
+		}
 	}
 }
 
