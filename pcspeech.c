@@ -61,25 +61,8 @@ void Usage(void)
 *	Return variables:                                                        *
 *		None                                                                 *
 *****************************************************************************/
-unsigned char reverse(unsigned char b) {
-   b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
-   b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
-   b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
-   return b;
-}
-
-
-void write_little_endian(unsigned int word, int num_bytes, FILE *wav_file)
-{
-	unsigned buf;
-	while(num_bytes>0)
-	{   buf = word & 0xff;
-		fwrite(&buf, 1,1, wav_file);
-		num_bytes--;
-	word >>= 8;
-	}
-}
-
+void fiveBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state);
+void fiveBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state);
 void fourBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state);
 void fourBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state);
 void threeBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state);
@@ -110,6 +93,8 @@ int main(int argc, char **argv)
 		bits = 3;
 	else if(strcmp(argv[1],"4")==0)
 		bits = 4;
+	else if(strcmp(argv[1], "5")==0)
+		bits = 5;
 		argc--;
 		argv++;
 	/* Open input file for processing */
@@ -152,6 +137,8 @@ int main(int argc, char **argv)
 			case 4:
 				fourBitDecode(fpin, fpout, &state);
 				break;
+			case 5:
+				fiveBitDecode(fpin, fpout, &state);
 		}
 
 
@@ -171,6 +158,9 @@ int main(int argc, char **argv)
 				break;
 			case 4:
 				fourBitEncode(fpin, fpout, &state);
+				break;
+			case 5:
+				fiveBitEncode(fpin, fpout, &state);
 				break;
 		}
 
@@ -309,5 +299,49 @@ void fourBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 	}
 }
 
+void fiveBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
+	unsigned char code;
+	short sample;
 
+	while (fread(&sample, sizeof(short), 1, fpin) == 1)
+	{
+		// Encode sample into lower 4-bits of code
+		code = ADPCMEncoder(sample, 5, state);
+		// Move ADPCM code to upper 4-bits
+		/*code = (code << 4) & 0xf0;
+
+		// Read new sample from file
+		if(fread(&sample,sizeof(short),1,fpin)==0)
+		{
+			// No more samples, write code to file
+			fwrite(&code,sizeof(char),1,fpout);
+			break;
+		}
+		// Encode sample and save in lower 4-bits of code
+		code |= ADPCMEncoder(sample, 4, state);
+		// Write code to file, code contains 2 ADPCM codes
+		fwrite(&code, sizeof (char), 1, fpout);*/
+
+	}
+
+}
+
+
+void fiveBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
+	unsigned char code;
+	short sample;
+
+	while (fread(&code, sizeof (char), 1, fpin) == 1)
+	{
+		// Send the upper 4-bits of code to decoder
+		sample = ADPCMDecoder((code>>4)&0x0f,4, state);
+		// Write sample for upper 4-bits of code
+		fwrite(&sample, sizeof(short), 1, fpout);
+
+		// Send the lower 4-bits of code to decoder
+		sample = ADPCMDecoder(code&0x0f, 4, state);
+		// Write sample for lower 4-bits of code
+		fwrite(&sample,sizeof(short),1,fpout);
+	}
+}
 

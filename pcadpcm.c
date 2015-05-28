@@ -28,8 +28,15 @@ signed char IndexTable[16] = {
 };
 
 signed char IndexTable3bit[8] = {
-		-1, -1, 1, 2,
-		-1, -1, 1, 2
+	-1, -1, 1, 2,
+	-1, -1, 1, 2
+};
+
+signed char IndexTable2Bit[4] = { -1, 2, -1, 2};
+
+signed char IndexTable5Bit[32] = {
+	-1, -1, -1, -1, -1, -1, -1, -1, 1, 2, 4, 6, 8, 10, 13, 16,
+	-1, -1, -1, -1, -1, -1, -1, -1, 1, 2, 4, 6, 8, 10, 13, 16
 };
 
 /* Quantizer step size lookup table */
@@ -72,75 +79,121 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 	/* Compute the difference between the acutal sample (sample) and the he predicted sample (predsample)*/
 
 	diff = sample - predsample;
-	if(diff < 0) {
-		switch(bits) {
-		case 4:
-			code = 8;
-			break;
-		case 3:
-			code = 4;
-			break;
+
+	if(bits == 5) {
+		if(diff < 0) {
+			code = 16;
+			diff = -diff;
+		} else
+			code = 0;
+
+		if(diff >= step) {
+			code |= 8;
+			diff -= step;
 		}
 
-		diff = -diff;
-	}
-	else
-		code = 0;
 
-	/* Quantize the difference into the 4-bit ADPCM code using the the quantizer step size */
-	//tempstep = step;
-
-	if( diff >= step)
-	{
-		switch(bits) {
-		case 4:
+		if(diff >= (step >> 1)) {
 			code |= 4;
-			break;
-		case 3:
-			code |= 2;
-			break;
+			diff -=  (step >> 1);
 		}
 
-		diff -= step;
-	}
-	if(diff >= (step >> 1))
-	{
-		switch(bits) {
-		case 4:
+		if(diff >= (step >> 2)) {
 			code |= 2;
-			diff -= (step >> 1);
-			break;
-		case 3:
+			diff -= (step >> 2);
+		}
+
+		if(diff >= (step >> 3)) {
 			code |= 1;
-			break;
 		}
+
+		diff = 0;
+
+		if(code & 8)
+			diff += step;
+		if(code & 4)
+			diff += (step >> 1);
+		if(code & 2)
+			diff += (step >> 2);
+		if(code & 1)
+			diff += (step >> 3);
+
+		diff += (step >> 4);
+
+		if(code & 16)
+			diff = -diff;
+	} else {
+
+		if(diff < 0) {
+			switch(bits) {
+			case 4:
+				code = 8;
+				break;
+			case 3:
+				code = 4;
+				break;
+			}
+
+			diff = -diff;
+		}
+		else
+			code = 0;
+
+		/* Quantize the difference into the 4-bit ADPCM code using the the quantizer step size */
+		//tempstep = step;
+
+		if( diff >= step)
+		{
+			switch(bits) {
+			case 4:
+				code |= 4;
+				break;
+			case 3:
+				code |= 2;
+				break;
+			}
+
+			diff -= step;
+		}
+		if(diff >= (step >> 1))
+		{
+			switch(bits) {
+			case 4:
+				code |= 2;
+				diff -= (step >> 1);
+				break;
+			case 3:
+				code |= 1;
+				break;
+			}
+		}
+
+
+		if(bits == 4 && (diff >= (step >> 2)))
+			code |= 1;
+
+		/* Inverse quantize the ADPCM code into a predicted difference using the quantizer step size */
+		diff = 0;
+
+		if(((bits == 4) && (code & 4)) || ((bits == 3) && (code & 2)))
+			diff += step;
+
+
+		if(((bits == 4) && (code & 2)) || ((bits == 3) && (code & 1)))
+			diff += (step >> 1);
+
+
+		if((bits == 4) && (code & 1))
+			diff += (step >> 2);
+
+		if(bits ==4)
+			diff += (step >> 3);
+		else
+			diff += (step >> 2);
+
+		if((bits == 4 && (code & 8)) || (bits == 3 && (code & 4)))
+			diff = -diff;
 	}
-
-
-	if(bits == 4 && (diff >= (step >> 2)))
-		code |= 1;
-
-	/* Inverse quantize the ADPCM code into a predicted difference using the quantizer step size */
-	diff = 0;
-
-	if(((bits == 4) && (code & 4)) || ((bits == 3) && (code & 2)))
-		diff += step;
-
-
-	if(((bits == 4) && (code & 2)) || ((bits == 3) && (code & 1)))
-		diff += (step >> 1);
-
-
-	if((bits == 4) && (code & 1))
-		diff += (step >> 2);
-
-	if(bits ==4)
-		diff += (step >> 3);
-	else
-		diff += (step >> 2);
-
-	if((bits == 4 && (code & 8)) || (bits == 3 && (code & 4)))
-		diff = -diff;
 
 	predsample = predsample + diff;
 	/* Fixed predictor computes new predicted sample by adding the old predicted sample to predicted difference */
@@ -154,8 +207,10 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 	/* Find new quantizer stepsize index by adding the old index to a table lookup using the ADPCM code */
 	if(bits == 4)
 		index += IndexTable[code];
-	else
+	else if(bits == 3)
 		index += IndexTable3bit[code];
+	else
+		index += IndexTable5Bit[code];
 
 	/* Check for overflow of the new quantizer step size index */
 	if( index < 0 )
@@ -167,8 +222,15 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 	state->prevsample = (short)predsample;
 	state->previndex = index;
 
+	if(bits == 4)
+		code &= 0x0f;
+	else if (bits == 3)
+		code &= 0x07;
+	else
+		code &= 0x10;
+
 	/* Return the new ADPCM code */
-	return ( code & 0x0f );
+	return code ;
 }
 
 /*****************************************************************************
