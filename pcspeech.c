@@ -35,6 +35,7 @@
 #include <string.h>
 
 
+
 /*****************************************************************************
 *	Usage - this routine prints a how to message for the pcspeech prgm       *
 ******************************************************************************
@@ -300,32 +301,56 @@ void fourBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 }
 
 void fiveBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
-	unsigned char code;
-	short sample;
+
+	signed short sample;
+	unsigned char code = 0;
+	int i = 1;
+	unsigned char buffer[5] = {0};
 
 	while (fread(&sample, sizeof(short), 1, fpin) == 1)
 	{
-		// Encode sample into lower 4-bits of code
 		code = ADPCMEncoder(sample, 5, state);
-		// Move ADPCM code to upper 4-bits
-		/*code = (code << 4) & 0xf0;
 
-		// Read new sample from file
-		if(fread(&sample,sizeof(short),1,fpin)==0)
-		{
-			// No more samples, write code to file
-			fwrite(&code,sizeof(char),1,fpout);
+		switch(i) {
+
+		case 1:
+			buffer[0] = code << 3;
+			break;
+		case 2:
+			buffer[0] |= code >> 2;
+			buffer[1] = code << 6;
+			break;
+		case 3:
+			buffer[1] |= code << 1;
+			break;
+		case 4:
+			buffer[1] |= code >> 4;
+			buffer[2] = code << 4;
+			break;
+		case 5:
+			buffer[2] |= code >> 1;
+			buffer[3] = code << 7;
+			break;
+		case 6:
+			buffer[3] |= code << 2;
+			break;
+		case 7:
+			buffer[3] |= code >> 3;
+			buffer[4] = code << 5;
+			break;
+		case 8:
+			buffer[4] |= code;
 			break;
 		}
-		// Encode sample and save in lower 4-bits of code
-		code |= ADPCMEncoder(sample, 4, state);
-		// Write code to file, code contains 2 ADPCM codes
-		fwrite(&code, sizeof (char), 1, fpout);*/
 
+
+		if(i == 8) {
+			fwrite(&buffer, sizeof (char) * 5, 1, fpout);
+			i = 0;
+		}
+		i++;
 	}
-
 }
-
 
 void fiveBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 	unsigned char code;

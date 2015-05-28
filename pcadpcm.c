@@ -222,12 +222,12 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 	state->prevsample = (short)predsample;
 	state->previndex = index;
 
-	if(bits == 4)
+/*	if(bits == 4)
 		code &= 0x0f;
 	else if (bits == 3)
 		code &= 0x07;
 	else
-		code &= 0x10;
+		code &= 0x10;*/
 
 	/* Return the new ADPCM code */
 	return code ;
