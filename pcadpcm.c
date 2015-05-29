@@ -80,56 +80,11 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 
 	diff = sample - predsample;
 
-	if(bits == 5) {
-		if(diff < 0) {
-			code = 16;
-			diff = -diff;
-		} else
-			code = 0;
-
-		if(diff >= step) {
-			code |= 8;
-			diff -= step;
-		}
-
-		int tempstep = step >> 1;
-		if(diff >= (step >> 1)) {
-			code |= 4;
-			diff -=  (step >> 1);
-		}
-
-		tempstep = step >> 2;
-		if(diff >= (step >> 2)) {
-			code |= 2;
-			diff -= (step >> 2);
-		}
-
-		tempstep = step >> 3;
-		if(diff >= (step >> 3)) {
-			code |= 1;
-		}
-
-		diff = 0;
-
-		if(code & 8)
-			diff += step;
-		if(code & 4)
-			diff += (step >> 1);
-		if(code & 2)
-			diff += (step >> 2);
-		if(code & 1)
-			diff += (step >> 3);
-
-		diff += (step >> 4);
-
-		if(code & 16)
-			predsample -= diff;
-		else
-			predsample += diff;
-	} else {
-
 		if(diff < 0) {
 			switch(bits) {
+			case 5:
+				code = 16;
+				break;
 			case 4:
 				code = 8;
 				break;
@@ -144,11 +99,13 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 			code = 0;
 
 		/* Quantize the difference into the 4-bit ADPCM code using the the quantizer step size */
-		//tempstep = step;
 
 		if( diff >= step)
 		{
 			switch(bits) {
+			case 5:
+				code |= 8;
+				break;
 			case 4:
 				code |= 4;
 				break;
@@ -162,6 +119,10 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 		if(diff >= (step >> 1))
 		{
 			switch(bits) {
+			case 5:
+				code |= 4;
+				diff -= (step >> 1);
+				break;
 			case 4:
 				code |= 2;
 				diff -= (step >> 1);
@@ -172,36 +133,50 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 			}
 		}
 
+		if(diff >= (step >> 2)) {
+			switch(bits) {
+			case 5:
+				code |= 2;
+				diff -= (step >> 2);
+				break;
+			case 4:
+				code |= 1;
+			}
+		}
 
-		if(bits == 4 && (diff >= (step >> 2)))
+		if(bits == 5 && diff >= (step >> 3))
 			code |= 1;
+
 
 		/* Inverse quantize the ADPCM code into a predicted difference using the quantizer step size */
 		diff = 0;
 
-		if(((bits == 4) && (code & 4)) || ((bits == 3) && (code & 2)))
+		if(((bits == 4) && (code & 4)) || ((bits == 3) && (code & 2)) || ((bits == 5) && (code & 8)))
 			diff += step;
 
 
-		if(((bits == 4) && (code & 2)) || ((bits == 3) && (code & 1)))
+		if(((bits == 4) && (code & 2)) || ((bits == 3) && (code & 1)) || ((bits == 5) && (code & 4)))
 			diff += (step >> 1);
 
 
-		if((bits == 4) && (code & 1))
+		if(((bits == 4) && (code & 1)) || ((bits == 5) && (code & 2)))
 			diff += (step >> 2);
+
+		if((bits == 5) && (code & 1))
+			diff += (step >> 3);
 
 		if(bits ==4)
 			diff += (step >> 3);
-		else
+		else if(bits == 3)
 			diff += (step >> 2);
+		else
+			diff += (step >> 4);
 
-		if((bits == 4 && (code & 8)) || (bits == 3 && (code & 4)))
+		if((bits == 4 && (code & 8)) || (bits == 3 && (code & 4)) || ((bits == 5) && (code & 16)))
 			predsample -= diff;
 		else
 			predsample += diff;
-	}
 
-	//predsample = predsample + diff;
 	/* Fixed predictor computes new predicted sample by adding the old predicted sample to predicted difference */
 
 	/* Check for overflow of the new predicted sample */
@@ -264,48 +239,32 @@ int ADPCMDecoder(char code, int bits, struct ADPCMstate *state)
 
 	/* Inverse quantize the ADPCM code into a difference using the quantizer step size */
 
-	if(bits == 5) {
 		diff = 0;
-
-		if(code & 8)
+		if(((bits == 4) && (code & 4)) || ((bits == 3) && (code & 2)) || ((bits == 5) && (code & 8)))
 			diff += step;
-		if(code & 4)
+
+		if(((bits == 4) && (code & 2)) || ((bits == 3) && (code & 1)) || ((bits == 5) && (code & 4)))
 			diff += (step >> 1);
-		if(code & 2)
+
+		if(((bits == 4) && (code & 1)) || ((bits == 5) && (code & 2)))
 			diff += (step >> 2);
-		if(code & 1)
+
+		if((bits == 5) && (code & 1))
 			diff += (step >> 3);
 
-		diff += (step >> 4);
-
-		if(code & 16)
-			predsample -= diff;
-		else
-			predsample += diff;
-
-	} else {
-
-		diff = 0;
-		if(((bits == 4) && (code & 4)) || ((bits == 3) && (code & 2)))
-			diff += step;
-
-		if(((bits == 4) && (code & 2)) || ((bits == 3) && (code & 1)))
-			diff += (step >> 1);
-
-		if((bits == 4) && (code & 1))
-			diff += (step >> 2);
 
 		if(bits ==4)
 			diff += (step >> 3);
-		else
+		else if(bits == 3)
 			diff += (step >> 2);
+		else
+			diff += (step >> 4);
 
-		if((bits == 4 && (code & 8)) || (bits == 3 && (code & 4)))
+
+		if((bits == 4 && (code & 8)) || ((bits == 3) && (code & 4)) ||  ((bits == 5) && (code & 16)))
 			predsample -= diff;
 		else
 			predsample += diff;
-
-	}
 
 	/* Check for overflow of the new predicted sample */
 	if( predsample > 32767)

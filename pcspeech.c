@@ -77,7 +77,6 @@ int main(int argc, char **argv)
 	FILE *fpin;
 	FILE *fpout;
 
-
 	state.prevsample=0;
 	state.previndex=0;
 
@@ -141,8 +140,6 @@ int main(int argc, char **argv)
 			case 5:
 				fiveBitDecode(fpin, fpout, &state);
 		}
-
-
 
 		//fourBitDecode(fpin, fpout, &state);
 		printf("ADPCM Decoding finished\n");
@@ -275,9 +272,7 @@ void fourBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 		code |= ADPCMEncoder(sample, 4, state);
 		// Write code to file, code contains 2 ADPCM codes
 		fwrite(&code, sizeof (char), 1, fpout);
-
 	}
-
 }
 
 
@@ -311,10 +306,7 @@ void fiveBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 
 	while (fread(&sample, sizeof(short), 1, fpin) == 1)
 	{
-
 		code = ADPCMEncoder(sample, 5, state);
-
-
 		switch(i) {
 
 		case 1:
@@ -365,10 +357,7 @@ void fiveBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 		fivebit[0] = (codes[0] >> 3) & 0x1f;
 		fivebit[1] = ((codes[0] << 2) & 0x1f) | ((codes[1] >> 6) & 0x3);
 		fivebit[2] = (codes[1]  >> 1) & 0x1f;
-
-
 		fivebit[3] = ((codes[1] << 4) & 0x1f) | ((codes[2] >> 4) & 0xf);
-
 		fivebit[4] = ((codes[2] << 1) & 0x1f) | ((codes[3] >> 7) & 0x1);
 		fivebit[5] = ((codes[3] >> 2 ) & 0x1f);
 		fivebit[6] = ((codes[3] << 3) & 0x1f) | ((codes[4] >> 5) & 0x7);
