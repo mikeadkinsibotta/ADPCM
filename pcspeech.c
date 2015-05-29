@@ -71,7 +71,7 @@ void threeBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state);
 
 int main(int argc, char **argv)
 {
-	int which = 0;;
+	int which = 0;
 	int bits = 0;
 	struct ADPCMstate state;
 	FILE *fpin;
@@ -181,22 +181,21 @@ void threeBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 
 	while (fread(codes, sizeof (char), 3, fpin) == 3) {
 
+		threebit[0] = (codes[0] >> 5) & 0x7;
+		threebit[1] = (codes[0] >> 2) & 0x7;
+		threebit[2] = (((codes[0] & 3) << 1) | ((codes[1] >> 7) & 0x1));
+		threebit[3] = (codes[1] >> 4) & 0x7;
+		threebit[4] = (codes[1] >> 1) & 0x7;
+		threebit[5] = (((codes[1] & 1) << 2) | ((codes[2] >> 6) & 0x3)) & 0x7;
+		threebit[6] = (codes[2] >> 3) & 0x7;
+		threebit[7] = codes[2] & 0x7;
 
-			threebit[0] = (codes[0] >> 5) & 0x7;
-			threebit[1] = (codes[0] >> 2) & 0x7;
-			threebit[2] = (((codes[0] & 3) << 1) | ((codes[1] >> 7) & 0x1));
-			threebit[3] = (codes[1] >> 4) & 0x7;
-			threebit[4] = (codes[1] >> 1) & 0x7;
-			threebit[5] = (((codes[1] & 1) << 2) | ((codes[2] >> 6) & 0x3)) & 0x7;
-			threebit[6] = (codes[2] >> 3) & 0x7;
-			threebit[7] = codes[2] & 0x7;
-
-			// Write sample for  3-bits code
-			for(int i = 0;i < 8; ++i) {
-				short sample = ADPCMDecoder(threebit[i], 3, state);
-				fwrite(&sample, sizeof(short), 1, fpout);
-			}
+		// Write sample for  3-bits code
+		for(int i = 0;i < 8; ++i) {
+			short sample = ADPCMDecoder(threebit[i], 3, state);
+			fwrite(&sample, sizeof(short), 1, fpout);
 		}
+	}
 	free(codes);
 }
 
@@ -285,18 +284,21 @@ void fourBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 void fourBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 	unsigned char code;
 	short sample;
-
+	int m = 0;
 	while (fread(&code, sizeof (char), 1, fpin) == 1)
 	{
+
 		// Send the upper 4-bits of code to decoder
 		sample = ADPCMDecoder((code>>4)&0x0f,4, state);
 		// Write sample for upper 4-bits of code
 		fwrite(&sample, sizeof(short), 1, fpout);
+		m++;
 
 		// Send the lower 4-bits of code to decoder
 		sample = ADPCMDecoder(code&0x0f, 4, state);
 		// Write sample for lower 4-bits of code
 		fwrite(&sample,sizeof(short),1,fpout);
+		m++;
 	}
 }
 
@@ -309,7 +311,9 @@ void fiveBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 
 	while (fread(&sample, sizeof(short), 1, fpin) == 1)
 	{
+
 		code = ADPCMEncoder(sample, 5, state);
+
 
 		switch(i) {
 
@@ -353,20 +357,31 @@ void fiveBitEncode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
 }
 
 void fiveBitDecode(FILE  *fpin, FILE  *fpout, struct ADPCMstate *state) {
-	unsigned char code;
-	short sample;
+	char * codes = (char*) malloc(sizeof(char)*5);
+	char fivebit[8];
 
-	while (fread(&code, sizeof (char), 1, fpin) == 1)
-	{
-		// Send the upper 4-bits of code to decoder
-		sample = ADPCMDecoder((code>>4)&0x0f,4, state);
-		// Write sample for upper 4-bits of code
-		fwrite(&sample, sizeof(short), 1, fpout);
+	while (fread(codes, sizeof(char), 5, fpin)) {
 
-		// Send the lower 4-bits of code to decoder
-		sample = ADPCMDecoder(code&0x0f, 4, state);
-		// Write sample for lower 4-bits of code
-		fwrite(&sample,sizeof(short),1,fpout);
+		fivebit[0] = (codes[0] >> 3) & 0x1f;
+		fivebit[1] = ((codes[0] << 2) & 0x1f) | ((codes[1] >> 6) & 0x3);
+		fivebit[2] = (codes[1]  >> 1) & 0x1f;
+
+
+		fivebit[3] = ((codes[1] << 4) & 0x1f) | ((codes[2] >> 4) & 0xf);
+
+		fivebit[4] = ((codes[2] << 1) & 0x1f) | ((codes[3] >> 7) & 0x1);
+		fivebit[5] = ((codes[3] >> 2 ) & 0x1f);
+		fivebit[6] = ((codes[3] << 3) & 0x1f) | ((codes[4] >> 5) & 0x7);
+		fivebit[7] = codes[4] & 0x1f;
+
+
+		// Write sample for  5-bits code
+		for(int i = 0;i < 8; ++i) {
+			short sample = ADPCMDecoder(fivebit[i], 5, state);
+			fwrite(&sample, sizeof(short), 1, fpout);
+		}
 	}
+	free(codes);
 }
+
 
