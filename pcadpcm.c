@@ -91,6 +91,9 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 			case 3:
 				code = 4;
 				break;
+			case 2:
+				code = 2;
+				break;
 			}
 
 			diff = -diff;
@@ -111,6 +114,9 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 				break;
 			case 3:
 				code |= 2;
+				break;
+			case 2:
+				code |= 1;
 				break;
 			}
 
@@ -151,7 +157,7 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 		/* Inverse quantize the ADPCM code into a predicted difference using the quantizer step size */
 		diff = 0;
 
-		if(((bits == 4) && (code & 4)) || ((bits == 3) && (code & 2)) || ((bits == 5) && (code & 8)))
+		if(((bits == 4) && (code & 4)) || ((bits == 3) && (code & 2)) || ((bits == 5) && (code & 8)) || ((bits == 2) && (code & 1)))
 			diff += step;
 
 
@@ -167,12 +173,14 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 
 		if(bits ==4)
 			diff += (step >> 3);
+		else if(bits == 2)
+			diff += (step >> 1);
 		else if(bits == 3)
 			diff += (step >> 2);
 		else
 			diff += (step >> 4);
 
-		if((bits == 4 && (code & 8)) || (bits == 3 && (code & 4)) || ((bits == 5) && (code & 16)))
+		if((bits == 4 && (code & 8)) || (bits == 3 && (code & 4)) || ((bits == 5) && (code & 16)) || (bits == 2 && (code & 2)))
 			predsample -= diff;
 		else
 			predsample += diff;
@@ -190,6 +198,8 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 		index += IndexTable[code];
 	else if(bits == 3)
 		index += IndexTable3bit[code];
+	else if(bits == 2)
+		index += IndexTable2Bit[code];
 	else
 		index += IndexTable5Bit[code];
 
@@ -207,6 +217,8 @@ char ADPCMEncoder( short sample, int bits, struct ADPCMstate *state )
 		code &= 0x0f;
 	else if (bits == 3)
 		code &= 0x07;
+	else if (bits == 2)
+		code &= 0x03;
 	else
 		code &= 0x1f;
 
@@ -240,7 +252,7 @@ int ADPCMDecoder(char code, int bits, struct ADPCMstate *state)
 	/* Inverse quantize the ADPCM code into a difference using the quantizer step size */
 
 		diff = 0;
-		if(((bits == 4) && (code & 4)) || ((bits == 3) && (code & 2)) || ((bits == 5) && (code & 8)))
+		if(((bits == 4) && (code & 4)) || ((bits == 3) && (code & 2)) || ((bits == 5) && (code & 8)) || ((bits == 2) && (code & 1)))
 			diff += step;
 
 		if(((bits == 4) && (code & 2)) || ((bits == 3) && (code & 1)) || ((bits == 5) && (code & 4)))
@@ -255,13 +267,15 @@ int ADPCMDecoder(char code, int bits, struct ADPCMstate *state)
 
 		if(bits ==4)
 			diff += (step >> 3);
+		else if(bits == 2)
+			diff += (step >> 1);
 		else if(bits == 3)
 			diff += (step >> 2);
 		else
 			diff += (step >> 4);
 
 
-		if((bits == 4 && (code & 8)) || ((bits == 3) && (code & 4)) ||  ((bits == 5) && (code & 16)))
+		if((bits == 4 && (code & 8)) || ((bits == 3) && (code & 4)) ||  ((bits == 5) && (code & 16)) ||  ((bits == 2) && (code & 2)))
 			predsample -= diff;
 		else
 			predsample += diff;
@@ -277,6 +291,8 @@ int ADPCMDecoder(char code, int bits, struct ADPCMstate *state)
 		index += IndexTable[code];
 	else if(bits == 3)
 		index += IndexTable3bit[code];
+	else if(bits == 2)
+		index += IndexTable2Bit[code];
 	else
 		index += IndexTable5Bit[code];
 
